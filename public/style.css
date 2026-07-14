@@ -1,0 +1,313 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%;
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: radial-gradient(ellipse at center, #a06a3a 0%, #6b4423 60%, #4a2e17 100%);
+  overflow: hidden;
+  color: #fff;
+  user-select: none;
+}
+
+.hidden { display: none !important; }
+
+/* ---------- TOP BAR ---------- */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: rgba(0,0,0,0.15);
+  z-index: 20;
+}
+.hearts-badge {
+  background: rgba(0,0,0,0.3);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.icon-btn {
+  background: #c97a3d;
+  border: none;
+  color: #fff;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  font-size: 18px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.icon-btn:active { transform: scale(0.92); }
+.table-badge {
+  margin-left: auto;
+  background: rgba(0,0,0,0.3);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+}
+.refresh { background: #7a9c3d; }
+
+/* ---------- GAME BOARD ---------- */
+.board {
+  position: absolute; inset: 0;
+  padding-top: 70px;
+}
+.sunburst {
+  position: absolute; top: 50%; left: 50%;
+  width: 340px; height: 340px;
+  transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(rgba(255,200,120,0.10) 0deg 15deg, transparent 15deg 30deg);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ---------- TUTORIAL ---------- */
+.tutorial-step {
+  position: fixed; top: 70px; left: 0; right: 0;
+  text-align: center; z-index: 25;
+  font-size: 22px; font-weight: 700;
+  text-shadow: 0 2px 4px #000;
+}
+.tutorial-hint {
+  position: fixed; z-index: 26;
+  transform: translate(-50%, -50%);
+  font-family: "Segoe Script", "Comic Sans MS", cursive;
+  font-size: 20px; color: #fff;
+  text-shadow: 0 2px 4px #000;
+  text-align: center;
+  max-width: 220px;
+  pointer-events: none;
+}
+.tutorial-hint.center-note { max-width: 320px; font-size: 22px; font-weight: 700; }
+.tutorial-arrow { font-size: 30px; margin-top: 4px; }
+.tutorial-refresh-hint {
+  position: fixed; top: 66px; right: 66px; z-index: 27;
+  font-family: "Segoe Script", "Comic Sans MS", cursive;
+  font-size: 20px; color: #fff; text-shadow: 0 2px 4px #000;
+  pointer-events: none;
+}
+
+/* ---------- GÖZLƏMƏ EKRANI ---------- */
+.wait-screen {
+  position: absolute; inset: 0; padding-top: 70px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; z-index: 15; text-align: center;
+}
+.wait-text { font-size: 22px; font-weight: 700; opacity: 0.7; line-height: 1.5; }
+.wait-avatar { width: 90px; height: 90px; border-radius: 16px; object-fit: cover; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
+.wait-name { font-size: 15px; font-weight: 700; }
+.npc-ring { position: absolute; inset: 0; }
+.npc-seat {
+  position: absolute;
+  width: 72px;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  transition: filter 0.2s;
+}
+.npc-seat img {
+  width: 68px; height: 68px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 2px solid rgba(255,255,255,0.25);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+}
+.npc-seat .name {
+  font-size: 12px;
+  margin-top: 3px;
+  text-shadow: 0 1px 2px #000;
+}
+.npc-seat.dim img { filter: brightness(0.55); }
+.npc-seat.highlight img { border-color: #ffce54; box-shadow: 0 0 12px #ffce54; }
+
+.center-area {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  width: 260px;
+}
+.bottle {
+  font-size: 70px;
+  transition: transform 1.8s cubic-bezier(.2,.8,.2,1);
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+}
+.center-text {
+  margin-top: 10px;
+  font-size: 17px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px #000;
+  line-height: 1.4;
+}
+
+/* ---------- HƏDİYYƏ SEÇİCİ ---------- */
+.gift-picker {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  background: #fff; color: #222;
+  border-radius: 16px 16px 0 0;
+  padding: 16px;
+  z-index: 30;
+}
+.gift-picker-title { font-weight: 700; margin-bottom: 10px; }
+.gift-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+.gift-grid .gift-item {
+  font-size: 28px;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+}
+.gift-item .cost {
+  display: block;
+  font-size: 10px;
+  color: #d9534f;
+  font-weight: 700;
+}
+
+/* ---------- CHAT ---------- */
+.chat-box {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  background: #fff; color: #222;
+  max-height: 55%;
+  display: flex; flex-direction: column;
+  border-radius: 16px 16px 0 0;
+  z-index: 30;
+}
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+.chat-msg { margin-bottom: 10px; display: flex; gap: 8px; align-items: flex-start; }
+.chat-msg .bubble {
+  background: #f1f1f1;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  max-width: 75%;
+}
+.chat-msg.user { flex-direction: row-reverse; }
+.chat-msg.user .bubble { background: #ffe9c7; }
+.chat-msg .sender { font-weight: 700; color: #4a90d9; font-size: 13px; }
+.chat-input-row {
+  display: flex; gap: 8px;
+  padding: 10px;
+  border-top: 1px solid #eee;
+}
+.chat-input-row input {
+  flex: 1; border: 1px solid #ddd; border-radius: 20px;
+  padding: 10px 14px; font-size: 14px;
+}
+.chat-input-row button {
+  background: #ff8c1a; color: #fff; border: none;
+  width: 42px; border-radius: 50%; font-size: 16px;
+}
+
+/* ---------- MODALS ---------- */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 50;
+}
+.modal-card {
+  background: #fff; color: #222;
+  border-radius: 16px;
+  padding: 24px;
+  width: 86%; max-width: 380px;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  text-align: center;
+}
+.modal-card.wide { max-width: 460px; }
+.modal-title { font-size: 18px; font-weight: 700; color: #999; margin-bottom: 8px; }
+.modal-desc { font-size: 14px; color: #444; margin-bottom: 16px; }
+.modal-close {
+  position: absolute; top: 10px; right: 10px;
+  background: #fff; border: 1px solid #ccc; border-radius: 50%;
+  width: 30px; height: 30px; font-size: 14px;
+}
+
+.form-row { display: flex; align-items: center; justify-content: space-between; margin: 14px 0; }
+.gender-select { display: flex; gap: 10px; }
+.gender-btn {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 2px solid #eee; font-size: 22px; background: #f7f7f7;
+}
+.gender-btn.selected { border-color: #ff8c1a; background: #ffe9c7; }
+#ageSelect { padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 15px; }
+
+.btn-green {
+  background: #7cc142; color: #fff; border: none;
+  padding: 12px 28px; border-radius: 24px; font-size: 15px; font-weight: 700;
+  margin-top: 10px; width: 100%;
+}
+.btn-green:disabled { background: #ccc; }
+
+/* ---------- ÇARXIFƏLƏK ---------- */
+.wheel-wrap { position: relative; width: 220px; height: 220px; margin: 10px auto; }
+.wheel-spinner {
+  width: 220px; height: 220px; border-radius: 50%;
+  background: conic-gradient(#3fae7a 0deg 30deg, #37a06e 30deg 60deg, #3fae7a 60deg 90deg, #37a06e 90deg 120deg,
+    #3fae7a 120deg 150deg, #37a06e 150deg 180deg, #3fae7a 180deg 210deg, #37a06e 210deg 240deg,
+    #3fae7a 240deg 270deg, #37a06e 270deg 300deg, #3fae7a 300deg 330deg, #37a06e 330deg 360deg);
+  border: 6px solid #ffce54;
+  transition: transform 3s cubic-bezier(.2,.7,.2,1);
+}
+.wheel-arrow {
+  position: absolute; left: -18px; top: 50%; transform: translateY(-50%);
+  font-size: 28px; color: #ffce54;
+}
+.wheel-cost { margin: 10px 0; font-size: 15px; color: #333; }
+.wheel-chance-row { font-size: 14px; color: #333; margin-bottom: 6px; }
+.chance-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #eafaf0; border-radius: 14px; padding: 3px 10px; font-weight: 700;
+}
+.plus-btn { color: #7cc142; font-size: 13px; }
+.wheel-winner-box {
+  margin-top: 14px; background: #2b2b2b; color: #fff;
+  border-radius: 10px; padding: 10px; text-align: left;
+}
+.wheel-winner-label { color: #ffce54; font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+.wheel-winner-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.wheel-winner-row img { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; }
+
+/* ---------- REYTİNQ ---------- */
+.tabs { display: flex; justify-content: center; gap: 6px; margin-bottom: 14px; }
+.tab-btn {
+  background: #eef4fb; border: none; width: 40px; height: 40px;
+  border-radius: 50%; font-size: 18px;
+}
+.tab-btn.active { background: #4a90d9; }
+.lb-list { text-align: left; max-height: 50vh; overflow-y: auto; }
+.lb-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 4px; border-bottom: 1px solid #f0f0f0;
+}
+.lb-row img { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; background: #eee; }
+.lb-row .rank { font-weight: 700; width: 22px; }
+.lb-row .name { flex: 1; font-weight: 600; }
+.lb-row .score { color: #e05a4e; font-weight: 700; }
+.lb-row.me { background: #fff6da; border-radius: 8px; }
+.lb-sep { text-align: center; font-size: 12px; color: #999; padding: 8px 0; }
+
+/* ---------- NAİLİYYƏTLƏR ---------- */
+.achv-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+}
+.achv-item {
+  aspect-ratio: 1; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; background: #f2f2f2; position: relative;
+}
+.achv-item.done { background: #fff3cd; }
+.achv-item .stars {
+  position: absolute; top: -14px; font-size: 9px; color: #f2a900; white-space: nowrap;
+}
+
+/* ---------- AYARLAR ---------- */
+.settings-row { display: flex; align-items: center; justify-content: space-between; margin: 14px 0; font-size: 15px; }
+.settings-row input[type="range"] { width: 140px; accent-color: #7cc142; }
+.settings-link { text-align: left; padding: 12px 4px; border-bottom: 1px solid #eee; font-size: 15px; }

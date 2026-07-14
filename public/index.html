@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Spin the Bottle 🍾❤️</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- Üst panel -->
+<div id="topbar" class="topbar">
+  <div class="hearts-badge">❤️ <span id="heartsCount">0</span></div>
+  <button class="icon-btn" id="btnWheel" title="Çarxıfələk">🎡</button>
+  <button class="icon-btn" id="btnTrophy" title="Reytinq">🏆</button>
+  <button class="icon-btn" id="btnMenu" title="Nailiyyətlər">☰</button>
+  <button class="icon-btn" id="btnSettings" title="Ayarlar">⚙️</button>
+  <div class="table-badge">Masa <span id="tableNumber">1</span></div>
+  <button class="icon-btn refresh" id="btnRefresh" title="Yeni masa">🔄</button>
+</div>
+
+<!-- Oyun masası -->
+<div id="gameBoard" class="board">
+  <div id="npcRing" class="npc-ring"></div>
+  <div class="sunburst"></div>
+  <div class="center-area">
+    <div id="bottle" class="bottle">🍾</div>
+    <div id="centerText" class="center-text">Yüklənir...</div>
+  </div>
+</div>
+
+<!-- Tutorial overlay -->
+<div id="tutorialStep" class="tutorial-step hidden">
+  <span id="tutorialStepLabel">Adım 1 / 5</span>
+</div>
+<div id="tutorialHint" class="tutorial-hint hidden">
+  <div id="tutorialHintText"></div>
+  <div id="tutorialHintArrow" class="tutorial-arrow">↙</div>
+</div>
+
+<!-- Gözləmə ekranı -->
+<div id="waitScreen" class="wait-screen hidden">
+  <div class="wait-text">Erkeklerin<br/>oyunu başlatmasını<br/>bekleniyor</div>
+  <img id="waitAvatar" class="wait-avatar" src="" />
+  <div id="waitName" class="wait-name"></div>
+</div>
+
+<!-- Hədiyyə seçici -->
+<div id="giftPicker" class="gift-picker hidden">
+  <div class="gift-picker-title">Bir hədiyyə seç</div>
+  <div class="gift-grid" id="giftGrid"></div>
+</div>
+
+<!-- Söhbət qutusu -->
+<div id="chatBox" class="chat-box hidden">
+  <div id="chatMessages" class="chat-messages"></div>
+  <div class="chat-input-row">
+    <input id="chatInput" type="text" placeholder="Mesaj yaz" />
+    <button id="btnSend">➤</button>
+  </div>
+</div>
+
+<!-- Profil quraşdırma modalı -->
+<div id="profileModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-title">Profil ayarları</div>
+    <p class="modal-desc">Kendinizden bahsedin. Masada eşleştirme açısından bu bilgi gereklidir.</p>
+    <div class="form-row">
+      <label>Cinsiyet:</label>
+      <div class="gender-select">
+        <button class="gender-btn" data-gender="male">👦</button>
+        <button class="gender-btn" data-gender="female">👧</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Yaş:</label>
+      <select id="ageSelect">
+        <option value="">--</option>
+        <script>document.write([...Array(50)].map((_,i)=>`<option value="${18+i}">${18+i}</option>`).join(''))</script>
+      </select>
+    </div>
+    <button id="btnProfileContinue" class="btn-green" disabled>Devam et</button>
+  </div>
+</div>
+
+<!-- Çarxıfələk modalı -->
+<div id="wheelModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <button class="modal-close" data-close="wheelModal">✕</button>
+    <div class="modal-title">Çarkıfelek</div>
+    <p class="modal-desc">"Çevir" butonuna basarak Çarkıfeleği döndürün ve ödülünüzü alın!</p>
+    <div class="wheel-chance-row">Şans: <span class="chance-badge">🎲 <span id="wheelChances">0</span> <span class="plus-btn">➕</span></span></div>
+    <div class="wheel-wrap">
+      <div id="wheelSpinner" class="wheel-spinner"></div>
+      <div class="wheel-arrow">➤</div>
+    </div>
+    <div class="wheel-cost">Bedel: 🎲 <span id="wheelCost">1</span></div>
+    <button id="btnSpinWheel" class="btn-green">Çevir</button>
+    <div id="wheelWinnerBox" class="wheel-winner-box hidden">
+      <div class="wheel-winner-label">Kazanan</div>
+      <div class="wheel-winner-row">
+        <img id="wheelWinnerAvatar" src="" />
+        <span><b id="wheelWinnerName"></b> <span id="wheelWinnerText"></span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reytinq modalı -->
+<div id="leaderboardModal" class="modal-overlay hidden">
+  <div class="modal-card wide">
+    <button class="modal-close" data-close="leaderboardModal">✕</button>
+    <div class="tabs">
+      <button class="tab-btn" data-cat="kiss">💋</button>
+      <button class="tab-btn" data-cat="music">🎵</button>
+      <button class="tab-btn" data-cat="heart">❤️</button>
+      <button class="tab-btn" data-cat="hug">🤗</button>
+      <button class="tab-btn" data-cat="smile">😄</button>
+    </div>
+    <div class="modal-title" id="lbTitle">En pahalı</div>
+    <div id="lbList" class="lb-list"></div>
+  </div>
+</div>
+
+<!-- Nailiyyətlər modalı -->
+<div id="achvModal" class="modal-overlay hidden">
+  <div class="modal-card wide">
+    <button class="modal-close" data-close="achvModal">✕</button>
+    <div class="modal-title">Başarılarım <span id="achvCount">0/0</span></div>
+    <div id="achvGrid" class="achv-grid"></div>
+  </div>
+</div>
+
+<!-- Ayarlar modalı -->
+<div id="settingsModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <button class="modal-close" data-close="settingsModal">✕</button>
+    <div class="modal-title">Ayarlar</div>
+    <div class="settings-row">
+      <span>🔊 Sesler</span>
+      <input type="range" id="soundRange" min="0" max="100" />
+    </div>
+    <div class="settings-row">
+      <span>🎵 Müzik</span>
+      <input type="range" id="musicRange" min="0" max="100" />
+    </div>
+    <div class="settings-link" id="btnInvite">👥 Arkadaşları davet et</div>
+    <div class="settings-link" id="btnProfileSettings">📇 Profil ayarları</div>
+    <div class="settings-link" id="btnContact">💬 Bize ulaşın</div>
+  </div>
+</div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
