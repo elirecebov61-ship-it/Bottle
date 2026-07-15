@@ -1,6 +1,27 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
+// ---------- SPLASH EKRANI (yüklənmə -> loqo -> oyun) ----------
+(function runSplashSequence() {
+  const splash = document.getElementById('splashScreen');
+  const loadingPhase = document.getElementById('splashLoading');
+  const logoPhase = document.getElementById('splashLogo');
+  if (!splash) return;
+
+  const LOADING_MS = 2500; // yüklənmə zolağı ekranı
+  const LOGO_MS = 1000;    // loqo ekranı
+
+  setTimeout(() => {
+    loadingPhase.classList.add('hidden');
+    logoPhase.classList.remove('hidden');
+
+    setTimeout(() => {
+      splash.classList.add('splash-fade-out');
+      setTimeout(() => splash.remove(), 400);
+    }, LOGO_MS);
+  }, LOADING_MS);
+})();
+
 const API = ''; // eyni domendə işlədiyi üçün boş saxlanılır
 const socket = io();
 
@@ -140,14 +161,18 @@ $('btnProfileContinue').onclick = async () => {
 async function joinTable() {
   showWaitScreen(state.user.first_name || 'Sən', state.user.photo_url);
   $('centerText').textContent = '';
-  const { session, npcs } = await api('/api/game/join', { method: 'POST', body: { userId: state.user.id } });
+  const { session, npcs, user } = await api('/api/game/join', { method: 'POST', body: { userId: state.user.id } });
   state.session = session;
   state.npcs = npcs;
+  if (user) { state.user = user; $('tableNumber').textContent = user.table_number; }
   renderRing();
   setTimeout(() => {
     hideWaitScreen();
-    $('centerText').textContent = 'Sıra sende!\nŞişeye tıkla!';
+    $('centerText').textContent = 'Sonraki sırayı\nbekliyoruz';
     if (isFirstPlay) showTutorialStep(1);
+    setTimeout(() => {
+      $('centerText').textContent = 'Sıra sende!\nŞişeye tıkla!';
+    }, 1500);
   }, 1200);
 }
 
@@ -155,12 +180,16 @@ function renderRing() {
   const ring = $('npcRing');
   ring.innerHTML = '';
 
-  // istifadəçinin öz yeri (0-cı mövqe)
+  // istifadəçinin öz yeri (0-cı mövqe) — toxunanda Stil (çərçivə) mağazası açılır
   const meSeat = document.createElement('div');
-  meSeat.className = 'npc-seat';
+  meSeat.className = 'npc-seat me';
   meSeat.style.top = SEAT_POSITIONS[0].top;
   meSeat.style.left = SEAT_POSITIONS[0].left;
-  meSeat.innerHTML = `<img src="${state.user.photo_url || 'img/npc/default.svg'}"/><div class="name">${state.user.first_name || 'Sən'}</div>`;
+  meSeat.innerHTML = `<div class="avatar-wrap">
+      <img src="${state.user.photo_url || 'img/npc/default.svg'}"/>
+    </div>
+    <div class="name">${state.user.first_name || 'Sən'}</div>`;
+  meSeat.querySelector('.avatar-wrap').onclick = openFrameShop;
   ring.appendChild(meSeat);
 
   state.npcs.forEach((npc, i) => {
@@ -170,12 +199,25 @@ function renderRing() {
     seat.dataset.npcId = npc.id;
     seat.style.top = pos.top;
     seat.style.left = pos.left;
-    seat.innerHTML = `<img src="${npc.photo_url}"/><div class="name">${npc.name}</div>`;
+    seat.innerHTML = `<div class="avatar-wrap">
+        <img src="${npc.photo_url}"/>
+        <span class="kiss-badge">${npc.kiss_count ?? 0}</span>
+        <span class="drink-icon">🥃</span>
+      </div>
+      <div class="name">${npc.name}</div>`;
     ring.appendChild(seat);
   });
 }
 
 // ---------- ŞİŞƏ ÇEVİRMƏ ----------
+
+let longPressTimer = null;
+$('bottle').addEventListener('pointerdown', () => {
+  longPressTimer = setTimeout(() => openBottleLongPressMenu(), 550);
+});
+['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => {
+  $('bottle').addEventListener(ev, () => clearTimeout(longPressTimer));
+});
 
 $('bottle').onclick = async () => {
   if (state.user.chances < 1) {
@@ -191,14 +233,15 @@ $('bottle').onclick = async () => {
     const seatEl = document.querySelector(`.npc-seat[data-npc-id="${target.id}"]`);
     const targetAngle = seatAngle(seatIndex + 1) + 720; // bir neçə tam dövr + hədəf bucağı
 
+    $('spinLabel').classList.remove('hidden');
     $('bottle').style.transform = `rotate(${targetAngle}deg)`;
 
     setTimeout(() => {
+      $('spinLabel').classList.add('hidden');
       document.querySelectorAll('.npc-seat').forEach((s) => s.classList.add('dim'));
       if (seatEl) seatEl.classList.remove('dim'), seatEl.classList.add('highlight');
-      $('centerText').textContent = `${target.name} ile eşleştin! 🎉`;
       if (isFirstPlay) { showTutorialStep(3); showTutorialHint('Bir hediye seç', '18%', '78%'); }
-      openGiftPicker(target.id);
+      openChoiceOverlay(target);
     }, 1900);
   } catch (e) {
     $('centerText').textContent = e.message;
@@ -209,6 +252,59 @@ function seatAngle(seatIdx) {
   // 12 oturacağı saat əqrəbi istiqamətində bərabər bölürük (sadə vizual approximasiya)
   return (360 / 12) * seatIdx;
 }
+
+// ---------- SEÇİMİN (Vazgeç / Öp) + GERİ ÖPECEK Mİ ----------
+
+function openChoiceOverlay(target) {
+  state.currentNpcId = target.id;
+  $('choiceUserAvatar').src = state.user.photo_url || 'img/npc/default.svg';
+  $('choiceTargetAvatar').src = target.photo_url;
+  $('choiceNumber').textContent = target.kiss_count ?? 0;
+  $('choiceOverlay').classList.remove('hidden');
+}
+
+$('btnChoiceCancel').onclick = () => {
+  $('choiceOverlay').classList.add('hidden');
+  document.querySelectorAll('.npc-seat').forEach((s) => { s.classList.remove('dim'); s.classList.remove('highlight'); });
+  $('bottle').style.transform = 'rotate(0deg)';
+  $('centerText').textContent = 'Sıra sende!\nŞişeye tıkla!';
+};
+
+$('btnChoiceKiss').onclick = async () => {
+  $('choiceOverlay').classList.add('hidden');
+  const target = state.npcs.find((n) => n.id === state.currentNpcId);
+  $('kissBackTargetAvatar').src = target.photo_url;
+  $('kissBackUserAvatar').src = state.user.photo_url || 'img/npc/default.svg';
+  $('kissBackOverlay').classList.remove('hidden');
+
+  try {
+    const { npc } = await api('/api/game/kiss', { method: 'POST', body: { userId: state.user.id, npcId: state.currentNpcId } });
+    const idx = state.npcs.findIndex((n) => n.id === npc.id);
+    if (idx >= 0) state.npcs[idx].kiss_count = npc.kiss_count;
+    const badge = document.querySelector(`.npc-seat[data-npc-id="${npc.id}"] .kiss-badge`);
+    if (badge) badge.textContent = npc.kiss_count;
+  } catch (e) { /* sessiz keç */ }
+
+  setTimeout(() => {
+    $('kissBackOverlay').classList.add('hidden');
+    $('centerText').textContent = `${target.name} ile eşleştin! 🎉`;
+    openGiftPicker(target.id);
+  }, 1500);
+};
+
+// ---------- ŞİŞƏ UZUN-BASMA MENYUSU ----------
+
+function openBottleLongPressMenu() {
+  $('bottleLongPressMenu').classList.remove('hidden');
+}
+document.addEventListener('click', (e) => {
+  const menu = $('bottleLongPressMenu');
+  if (!menu.classList.contains('hidden') && !menu.contains(e.target) && e.target.id !== 'bottle') {
+    menu.classList.add('hidden');
+  }
+});
+$('btnOpenBoosters').onclick = () => { $('bottleLongPressMenu').classList.add('hidden'); openBoosterModal(); };
+$('btnOpenBottleShop').onclick = () => { $('bottleLongPressMenu').classList.add('hidden'); openBottleShop(); };
 
 // ---------- HƏDİYYƏ SEÇİCİ ----------
 
@@ -383,23 +479,45 @@ async function loadLeaderboard(cat) {
 }
 
 // ---------- NAİLİYYƏTLƏR ----------
+// QEYD: orijinal botda 333 nailiyyətin hər birinin özünəməxsus əl çəkilmiş
+// medal ikonu var. Bunu dəqiq təkrarlamaq mümkün olmadığı üçün burada emoji
+// əsaslı yaxınlaşma istifadə olunur (say və struktur eynidir: 333, tab-lar və s.)
+
+let achvRows = [];
+let achvFilter = 'completed';
 
 $('btnMenu').onclick = async () => {
   $('achvModal').classList.remove('hidden');
   const { rows } = await api(`/api/achievements/${state.user.id}`);
+  achvRows = rows;
+  renderAchievements();
+};
+
+document.querySelectorAll('.achv-filter-btn').forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll('.achv-filter-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    achvFilter = btn.dataset.filter;
+    renderAchievements();
+  };
+});
+
+function renderAchievements() {
   const grid = $('achvGrid');
   grid.innerHTML = '';
   let done = 0;
-  rows.forEach((a) => {
-    if (a.completed) done++;
+  achvRows.forEach((a) => { if (a.completed) done++; });
+  const filtered = achvRows.filter((a) => (achvFilter === 'completed' ? a.completed : !a.completed));
+  filtered.forEach((a) => {
     const div = document.createElement('div');
     div.className = 'achv-item' + (a.completed ? ' done' : '');
     div.title = `${a.name} — ${a.description} (${a.progress}/${a.goal})`;
-    div.innerHTML = `<span class="stars">${'⭐'.repeat(Math.min(a.stars, 5))}</span>${a.completed ? '🏆' : '❔'}`;
+    div.innerHTML = `<span class="stars">${'⭐'.repeat(Math.min(a.stars, 5))}</span>
+      <span class="achv-icon">${a.icon_url || '❔'}</span>`;
     grid.appendChild(div);
   });
-  $('achvCount').textContent = `${done}/${rows.length}`;
-};
+  $('achvCount').textContent = `${done}/${achvRows.length}`;
+}
 
 // ---------- AYARLAR ----------
 
@@ -425,7 +543,192 @@ $('btnRefresh').onclick = async () => {
   document.querySelectorAll('.npc-seat').forEach((s) => { s.classList.remove('dim'); s.classList.remove('highlight'); });
   $('bottle').style.transform = 'rotate(0deg)';
   $('chatBox').classList.add('hidden');
+  $('choiceOverlay').classList.add('hidden');
+  $('kissBackOverlay').classList.add('hidden');
   await joinTable();
 };
+
+// ---------- MASAYI DƏYİŞTİR ----------
+
+$('btnTableSwitch').onclick = () => { $('tableSwitchModal').classList.remove('hidden'); loadRecentTables(); };
+
+async function loadRecentTables() {
+  const { rows } = await api(`/api/game/table/history/${state.user.id}`);
+  const list = $('recentTablesList');
+  list.innerHTML = '';
+  if (!rows.length) {
+    list.innerHTML = '<div style="color:#999;font-size:13px;">Hələ ziyarət olunmuş masa yoxdur</div>';
+    return;
+  }
+  rows.forEach((r) => {
+    const div = document.createElement('div');
+    div.className = 'recent-table-row';
+    div.innerHTML = `<img src="img/npc/bottle_icon.svg" onerror="this.style.display='none'"/>
+      <span class="rt-number">#${r.table_number}</span>
+      <span class="rt-counts">👦${r.male_count} 👧${r.female_count}</span>`;
+    div.onclick = async () => {
+      $('tableSwitchModal').classList.add('hidden');
+      $('choiceOverlay').classList.add('hidden');
+      $('kissBackOverlay').classList.add('hidden');
+      $('chatBox').classList.add('hidden');
+      await joinTable();
+    };
+    list.appendChild(div);
+  });
+}
+
+$('btnRandomTable').onclick = async () => {
+  $('tableSwitchModal').classList.add('hidden');
+  document.querySelectorAll('.npc-seat').forEach((s) => { s.classList.remove('dim'); s.classList.remove('highlight'); });
+  $('bottle').style.transform = 'rotate(0deg)';
+  $('chatBox').classList.add('hidden');
+  const { session, npcs, user } = await api('/api/game/table/switch', { method: 'POST', body: { userId: state.user.id } });
+  state.session = session;
+  state.npcs = npcs;
+  state.user = user;
+  $('tableNumber').textContent = user.table_number;
+  $('heartsCount').textContent = user.hearts;
+  renderRing();
+  $('centerText').textContent = 'Sonraki sırayı\nbekliyoruz';
+  setTimeout(() => { $('centerText').textContent = 'Sıra sende!\nŞişeye tıkla!'; }, 1500);
+};
+
+// ---------- BOOSTER'LAR ----------
+
+async function openBoosterModal() {
+  $('boosterModal').classList.remove('hidden');
+  const data = await api(`/api/boosters/${state.user.id}`);
+  $('boosterFlame').textContent = data.flame ?? 0;
+  $('boosterClap').textContent = data.clap ?? 0;
+  $('boosterX2').textContent = data.x2 ?? 0;
+  $('boosterKissup').textContent = data.kissup ?? 0;
+  $('boosterPlus5').textContent = data.plus5 ?? 0;
+}
+
+// ---------- ŞİŞƏNİ DƏYİŞ ----------
+
+async function openBottleShop() {
+  $('bottleShopSheet').classList.remove('hidden');
+  const { rows } = await api('/api/shop/bottles');
+  const grid = $('bottleShopGrid');
+  grid.innerHTML = '';
+  rows.forEach((b) => {
+    const div = document.createElement('div');
+    div.className = 'bottle-shop-item' + (state.user.bottle_skin === b.key ? ' selected' : '');
+    div.innerHTML = `${b.emoji}<span class="cost">${b.cost ? '❤️' + b.cost : 'Pulsuz'}</span>`;
+    div.onclick = async () => {
+      try {
+        const { user } = await api('/api/shop/bottle/buy', { method: 'POST', body: { userId: state.user.id, skinKey: b.key } });
+        state.user = user;
+        $('heartsCount').textContent = user.hearts;
+        $('bottle').textContent = b.emoji;
+        openBottleShop();
+      } catch (e) { alert(e.message); }
+    };
+    grid.appendChild(div);
+  });
+}
+
+// ---------- STİL (ÇƏRÇİVƏ) MAĞAZASI ----------
+
+let chosenFrameKey = null;
+async function openFrameShop() {
+  $('frameShopModal').classList.remove('hidden');
+  $('framePreviewAvatar').src = state.user.photo_url || 'img/npc/default.svg';
+  chosenFrameKey = state.user.frame_id || 'none';
+  const { rows } = await api('/api/shop/frames');
+  const grid = $('frameGrid');
+  grid.innerHTML = '';
+  rows.forEach((f) => {
+    const div = document.createElement('div');
+    div.className = 'frame-item';
+    if (f.key === 'none') {
+      div.textContent = '✕';
+    } else {
+      div.style.background = `linear-gradient(135deg, ${f.colors[0]}, ${f.colors[1]})`;
+    }
+    if (f.cost > 0) {
+      const costEl = document.createElement('span');
+      costEl.className = 'frame-cost';
+      costEl.textContent = '❤️' + f.cost;
+      div.appendChild(costEl);
+    }
+    if (f.key === chosenFrameKey) div.style.outline = '3px solid #6fb53a';
+    div.onclick = () => {
+      chosenFrameKey = f.key;
+      document.querySelectorAll('.frame-item').forEach((el) => { el.style.outline = 'none'; });
+      div.style.outline = '3px solid #6fb53a';
+    };
+    grid.appendChild(div);
+  });
+}
+$('btnApplyFrame').onclick = async () => {
+  try {
+    const { user } = await api('/api/shop/frame/buy', { method: 'POST', body: { userId: state.user.id, frameKey: chosenFrameKey } });
+    state.user = user;
+    $('heartsCount').textContent = user.hearts;
+    $('frameShopModal').classList.add('hidden');
+  } catch (e) { alert(e.message); }
+};
+
+// ---------- KALP AL (Telegram Stars) ----------
+
+$('btnHeartShop').onclick = openHeartShop;
+async function openHeartShop() {
+  $('heartShopModal').classList.remove('hidden');
+  const { rows } = await api('/api/hearts/packages');
+  const grid = $('heartShopGrid');
+  grid.innerHTML = '';
+
+  // Xüsusi kartlar (VIP / dost dəvəti / iltifatlar) — sadələşdirilmiş, demo işləkdir
+  const special = [
+    { title: 'VIP\nDURUM', icon: '👑', action: () => alert('VIP status hələ tam işlənməyib — tezliklə!') },
+    { title: 'Bir arkadaş için\n❤️20 alın', icon: '➕', action: () => grantBonus(20) },
+    { title: 'İltifatlar için\n❤️10 alın', icon: '✉️', action: () => grantBonus(10) },
+  ];
+  special.forEach((s) => {
+    const div = document.createElement('div');
+    div.className = 'heart-shop-item';
+    div.innerHTML = `<div class="hs-title">${s.icon}</div>
+      <div class="hs-title" style="white-space:pre-line;">${s.title}</div>
+      <button class="hs-buy">Ayrıntılar</button>`;
+    div.querySelector('.hs-buy').onclick = s.action;
+    grid.appendChild(div);
+  });
+
+  rows.forEach((p) => {
+    const div = document.createElement('div');
+    div.className = 'heart-shop-item';
+    const bonus = p.hearts > p.stars ? `+${Math.round((p.hearts / p.stars - 1) * 100)}% BONUS` : '';
+    div.innerHTML = `${bonus ? `<div class="hs-badge">${bonus}</div>` : ''}
+      <div class="hs-title">Ürəklər</div>
+      <div class="hs-amount">❤️${p.hearts}</div>
+      <button class="hs-buy">⭐ ${p.stars}</button>`;
+    div.querySelector('.hs-buy').onclick = () => buyHeartPackage(p.key);
+    grid.appendChild(div);
+  });
+}
+
+async function grantBonus(amount) {
+  try {
+    const { user } = await api('/api/hearts/bonus', { method: 'POST', body: { userId: state.user.id, amount } });
+    state.user = user;
+    $('heartsCount').textContent = user.hearts;
+    openHeartShop();
+  } catch (e) { alert(e.message); }
+}
+
+async function buyHeartPackage(packageKey) {
+  try {
+    const { link } = await api('/api/hearts/invoice', { method: 'POST', body: { userId: state.user.id, packageKey } });
+    if (tg && tg.openInvoice) {
+      tg.openInvoice(link, async (status) => {
+        if (status === 'paid') { await refreshHearts(); }
+      });
+    } else {
+      window.open(link, '_blank');
+    }
+  } catch (e) { alert(e.message); }
+}
 
 init();

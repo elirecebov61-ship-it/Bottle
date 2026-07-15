@@ -28,9 +28,16 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 import uvicorn
 
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Update, LabeledPrice
+from telegram.ext import (
+    Application, CommandHandler, ContextTypes,
+    PreCheckoutQueryHandler, MessageHandler, filters,
+)
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+
+# Sadə API sorğuları (məs. invoice yaratmaq) üçün ayrıca Bot müştərisi.
+# main() içində application qurulanda eyni tokenlə əvəz olunur.
+tg_bot = None
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -142,6 +149,29 @@ CREATE TABLE IF NOT EXISTS wheel_spins (
 
 CREATE INDEX IF NOT EXISTS idx_leaderboard_cat_score ON leaderboard_scores(category, score DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
+
+CREATE TABLE IF NOT EXISTS recent_tables (
+  id            SERIAL PRIMARY KEY,
+  user_id       INT REFERENCES users(id) ON DELETE CASCADE,
+  table_number  INT NOT NULL,
+  male_count    INT NOT NULL DEFAULT 0,
+  female_count  INT NOT NULL DEFAULT 0,
+  visited_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+"""
+
+# Artıq canlı verilənlər bazasında olan cədvəllərə yeni sütunlar əlavə etmək
+# üçün (CREATE TABLE IF NOT EXISTS köhnə cədvələ toxunmur):
+MIGRATIONS_SQL = """
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bottle_skin TEXT NOT NULL DEFAULT 'classic';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS frame_id TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS vip BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS booster_flame INT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS booster_clap INT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS booster_x2 INT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS booster_kissup INT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS booster_plus5 INT NOT NULL DEFAULT 0;
+ALTER TABLE npc_profiles ADD COLUMN IF NOT EXISTS kiss_count INT NOT NULL DEFAULT 0;
 """
 
 NPC_SEED = [
@@ -158,17 +188,104 @@ NPC_SEED = [
     ("Ahmet", 25, "male", "/img/npc/ahmet.svg", "friendly"),
 ]
 
-ACHV_SEED = [
-    ("first_spin", "İlk Çevirmə", "Şişəni ilk dəfə çevir", 3, 1),
-    ("first_gift", "İlk Hədiyyə", "İlk hədiyyəni göndər", 3, 1),
-    ("first_kiss", "İlk Öpüş", "İlk dəfə öp emoji-si göndər", 3, 1),
-    ("hearts_100", "Yüz Ürək", "100 ürək qazan", 4, 100),
-    ("hearts_1000", "Min Ürək", "1000 ürək qazan", 5, 1000),
-    ("gifts_10", "Səxavətli", "10 hədiyyə göndər", 4, 10),
-    ("spins_50", "Şişə Ustası", "50 dəfə şişəni çevir", 5, 50),
-    ("wheel_master", "Çarxıfələk Ustası", "Çarxıfələkdə böyük ikramiyəni qazan", 6, 1),
-    ("social_butterfly", "Sosial Kəpənək", "20 fərqli profil ilə söhbət et", 5, 20),
+_ACHV_BASE = [
+    ("first_spin", "İlk Çevirmə", "Şişəni ilk dəfə çevir", 3, 1, "🍾"),
+    ("first_gift", "İlk Hədiyyə", "İlk hədiyyəni göndər", 3, 1, "🎁"),
+    ("first_kiss", "İlk Öpüş", "İlk dəfə öp emoji-si göndər", 3, 1, "💋"),
+    ("hearts_100", "Yüz Ürək", "100 ürək qazan", 4, 100, "❤️"),
+    ("hearts_1000", "Min Ürək", "1000 ürək qazan", 5, 1000, "💎"),
+    ("gifts_10", "Səxavətli", "10 hədiyyə göndər", 4, 10, "🎀"),
+    ("spins_50", "Şişə Ustası", "50 dəfə şişəni çevir", 5, 50, "🌀"),
+    ("wheel_master", "Çarxıfələk Ustası", "Çarxıfələkdə böyük ikramiyəni qazan", 6, 1, "🎡"),
+    ("social_butterfly", "Sosial Kəpənək", "20 fərqli profil ilə söhbət et", 5, 20, "🦋"),
 ]
+
+_ACHV_ICON_POOL = [
+    "👽", "🚢", "🎸", "☕", "🍹", "🗼", "🎀", "⚓", "😎", "⚡", "🎉", "☕",
+    "🚜", "🥾", "🏆", "🇦🇷", "🧚", "🪂", "💘", "🎧", "💿", "🥇", "🧋", "🥈",
+    "🐶", "☎️", "🕶️", "✨", "👟", "🏹", "💎", "🎯", "🔥", "🎲", "🍸", "🎶",
+    "🌹", "👑", "💌", "🎂",
+]
+_ACHV_CATEGORIES = [
+    ("spin", "Çevirmə", "dəfə şişəni çevir"),
+    ("gift", "Hədiyyə", "hədiyyə göndər"),
+    ("kiss", "Öpüş", "öpüş paylaş"),
+    ("hearts", "Ürək", "ürək qazan"),
+    ("chat", "Söhbət", "mesaj göndər"),
+    ("wheel", "Çarxıfələk", "dəfə çevir"),
+    ("music", "Musiqi", "mahnı paylaş"),
+    ("social", "Tanışlıq", "fərqli insanla tanış ol"),
+    ("table", "Masa", "fərqli masa gəz"),
+]
+
+
+def _generate_achievements(total: int = 333):
+    """
+    333 nailiyyət generasiya edir (orijinal botdakı kimi say və struktur).
+    QEYD: orijinal botun 333 əl ilə çəkilmiş unikal medal ikonu var — bunları
+    dəqiq təkrarlamaq mümkün deyil, ona görə bu funksiya emoji-based yaxınlaşma yaradır.
+    """
+    achievements = list(_ACHV_BASE)
+    existing_keys = {a[0] for a in achievements}
+    i = 0
+    while len(achievements) < total:
+        cat_key, cat_name, cat_verb = _ACHV_CATEGORIES[i % len(_ACHV_CATEGORIES)]
+        tier = i // len(_ACHV_CATEGORIES)
+        key = f"{cat_key}_{tier}"
+        if key in existing_keys:
+            i += 1
+            continue
+        goal = max(1, (tier + 1) * random.choice([2, 3, 5, 8, 10]))
+        stars = min(8, 3 + tier % 6)
+        icon = _ACHV_ICON_POOL[len(achievements) % len(_ACHV_ICON_POOL)]
+        name = f"{cat_name} #{tier + 1}"
+        desc = f"{goal} {cat_verb}"
+        achievements.append((key, name, desc, stars, goal, icon))
+        existing_keys.add(key)
+        i += 1
+    return achievements[:total]
+
+
+ACHV_SEED = _generate_achievements(333)
+
+# ---------- ŞİŞƏ DİZAYNLARI (Şişeyi değiştir) ----------
+BOTTLE_SKINS = [
+    {"key": "classic",   "emoji": "🍾", "cost": 0},
+    {"key": "amber",     "emoji": "🏺", "cost": 5},
+    {"key": "vintage",   "emoji": "🍶", "cost": 5},
+    {"key": "beer",      "emoji": "🍺", "cost": 5},
+    {"key": "cognac",    "emoji": "🥃", "cost": 5},
+    {"key": "cola",      "emoji": "🥤", "cost": 5},
+    {"key": "juice",     "emoji": "🧃", "cost": 5},
+    {"key": "milk",      "emoji": "🍼", "cost": 5},
+    {"key": "perfume",   "emoji": "🧴", "cost": 5},
+    {"key": "sake",      "emoji": "⚱️", "cost": 5},
+    {"key": "cocktail",  "emoji": "🍸", "cost": 5},
+    {"key": "champagne", "emoji": "🍻", "cost": 5},
+    {"key": "vip_gold",  "emoji": "👑", "cost": 5},
+]
+
+# ---------- PROFİL ÇƏRÇİVƏLƏRİ (Stil) ----------
+_FRAME_COLORS = [
+    ("#ff5e5e", "#ffb84d"), ("#4dc9ff", "#4d7dff"), ("#7effa0", "#22c55e"),
+    ("#ffd24d", "#ff8a00"), ("#c084fc", "#7c3aed"), ("#ff8dc7", "#e11d8f"),
+    ("#5eead4", "#0891b2"), ("#fca5a5", "#dc2626"), ("#fde047", "#ca8a04"),
+    ("#a3e635", "#4d7c0f"), ("#93c5fd", "#1d4ed8"), ("#fdba74", "#c2410c"),
+]
+FRAME_CATALOG = [{"key": "none", "cost": 0, "colors": None}]
+for _fi in range(24):
+    c1, c2 = _FRAME_COLORS[_fi % len(_FRAME_COLORS)]
+    FRAME_CATALOG.append({"key": f"frame_{_fi+1}", "cost": 500, "colors": [c1, c2]})
+
+# ---------- ÜRƏK PAKETLƏRİ (Telegram Stars ilə) ----------
+HEART_PACKAGES = {
+    "p50":   {"hearts": 50,   "stars": 50},
+    "p250":  {"hearts": 250,  "stars": 250},
+    "p500":  {"hearts": 500,  "stars": 500},
+    "p1200": {"hearts": 1200, "stars": 1000},
+    "p2500": {"hearts": 3125, "stars": 2500},
+    "p5000": {"hearts": 7000, "stars": 5000},
+}
 
 GIFT_CATALOG = {
     "crown":     {"cost": 50,  "category": "heart"},
@@ -250,18 +367,20 @@ async def init_db():
     db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=10)
     async with db_pool.acquire() as conn:
         await conn.execute(SCHEMA_SQL)
+        await conn.execute(MIGRATIONS_SQL)
         for name, age, gender, photo, personality in NPC_SEED:
+            kiss_seed = random.randint(40, 900)
             await conn.execute(
-                """INSERT INTO npc_profiles (name, age, gender, photo_url, personality)
-                   SELECT $1,$2,$3,$4,$5
+                """INSERT INTO npc_profiles (name, age, gender, photo_url, personality, kiss_count)
+                   SELECT $1,$2,$3,$4,$5,$6
                    WHERE NOT EXISTS (SELECT 1 FROM npc_profiles WHERE name=$1)""",
-                name, age, gender, photo, personality,
+                name, age, gender, photo, personality, kiss_seed,
             )
-        for key, name, desc, stars, goal in ACHV_SEED:
+        for key, name, desc, stars, goal, icon in ACHV_SEED:
             await conn.execute(
-                """INSERT INTO achievements (achv_key, name, description, stars, goal)
-                   VALUES ($1,$2,$3,$4,$5) ON CONFLICT (achv_key) DO NOTHING""",
-                key, name, desc, stars, goal,
+                """INSERT INTO achievements (achv_key, name, description, stars, goal, icon_url)
+                   VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (achv_key) DO NOTHING""",
+                key, name, desc, stars, goal, icon,
             )
     log.info("✅ Verilənlər bazası hazırdır")
 
@@ -283,9 +402,21 @@ async def get_or_create_user(conn, tg_user: dict):
     return dict(row)
 
 
-async def seat_table(conn, user_id: int):
-    npcs = await conn.fetch("SELECT id FROM npc_profiles ORDER BY random() LIMIT 11")
+async def seat_table(conn, user_id: int, force_new_table: bool = True):
+    npcs = await conn.fetch("SELECT id, gender FROM npc_profiles ORDER BY random() LIMIT 11")
     seated_ids = [n["id"] for n in npcs]
+    male_count = sum(1 for n in npcs if n["gender"] == "male")
+    female_count = sum(1 for n in npcs if n["gender"] == "female")
+
+    if force_new_table:
+        table_number = random.randint(2, 999)
+        await conn.execute("UPDATE users SET table_number=$1 WHERE id=$2", table_number, user_id)
+        await conn.execute(
+            """INSERT INTO recent_tables (user_id, table_number, male_count, female_count)
+               VALUES ($1,$2,$3,$4)""",
+            user_id, table_number, male_count, female_count,
+        )
+
     existing = await conn.fetchrow("SELECT * FROM game_sessions WHERE user_id=$1", user_id)
     if existing:
         row = await conn.fetchrow(
@@ -393,10 +524,11 @@ async def game_join(req: Request):
     user_id = body["userId"]
     async with db_pool.acquire() as conn:
         session = await seat_table(conn, user_id)
+        user = await conn.fetchrow("SELECT * FROM users WHERE id=$1", user_id)
         npcs = await conn.fetch(
             "SELECT * FROM npc_profiles WHERE id = ANY($1::int[])", session["seated_npc_ids"]
         )
-    return {"session": session, "npcs": [dict(n) for n in npcs]}
+    return {"session": session, "npcs": [dict(n) for n in npcs], "user": row_to_json(user)}
 
 
 @api.post("/api/game/spin")
@@ -546,6 +678,173 @@ async def achievements(user_id: int):
     return {"rows": [dict(r) for r in rows]}
 
 
+# ---------- ÖPÜŞ (bottle spin nəticəsi) ----------
+
+@api.post("/api/game/kiss")
+async def game_kiss(req: Request):
+    body = await req.json()
+    user_id, npc_id = body["userId"], body["npcId"]
+    async with db_pool.acquire() as conn:
+        npc = await conn.fetchrow(
+            "UPDATE npc_profiles SET kiss_count = kiss_count + 1 WHERE id=$1 RETURNING *", npc_id
+        )
+        await bump_achievement(conn, user_id, "first_kiss", 1)
+    return {"npc": dict(npc)}
+
+
+# ---------- MASA DƏYİŞDİRMƏ ----------
+
+@api.post("/api/game/table/switch")
+async def table_switch(req: Request):
+    body = await req.json()
+    user_id = body["userId"]
+    async with db_pool.acquire() as conn:
+        session = await seat_table(conn, user_id, force_new_table=True)
+        user = await conn.fetchrow("SELECT * FROM users WHERE id=$1", user_id)
+        npcs = await conn.fetch(
+            "SELECT * FROM npc_profiles WHERE id = ANY($1::int[])", session["seated_npc_ids"]
+        )
+    return {"session": session, "npcs": [dict(n) for n in npcs], "user": row_to_json(user)}
+
+
+@api.get("/api/game/table/history/{user_id}")
+async def table_history(user_id: int):
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT DISTINCT ON (table_number) table_number, male_count, female_count, visited_at
+               FROM recent_tables WHERE user_id=$1
+               ORDER BY table_number, visited_at DESC""",
+            user_id,
+        )
+    rows = sorted(rows, key=lambda r: r["visited_at"], reverse=True)[:3]
+    return {"rows": [row_to_json(r) for r in rows]}
+
+
+# ---------- ŞİŞƏ DİZAYNLARI MAĞAZASI ----------
+
+@api.get("/api/shop/bottles")
+async def shop_bottles():
+    return {"rows": BOTTLE_SKINS}
+
+
+@api.post("/api/shop/bottle/buy")
+async def shop_bottle_buy(req: Request):
+    body = await req.json()
+    user_id, skin_key = body["userId"], body["skinKey"]
+    skin = next((s for s in BOTTLE_SKINS if s["key"] == skin_key), None)
+    if not skin:
+        raise HTTPException(400, "naməlum şişə")
+    async with db_pool.acquire() as conn:
+        user = await conn.fetchrow("SELECT * FROM users WHERE id=$1", user_id)
+        if not user or user["hearts"] < skin["cost"]:
+            raise HTTPException(400, "ürək kifayət etmir")
+        row = await conn.fetchrow(
+            "UPDATE users SET hearts = hearts - $1, bottle_skin=$2 WHERE id=$3 RETURNING *",
+            skin["cost"], skin_key, user_id,
+        )
+    return {"user": row_to_json(row)}
+
+
+# ---------- PROFİL ÇƏRÇİVƏSİ (STİL) MAĞAZASI ----------
+
+@api.get("/api/shop/frames")
+async def shop_frames():
+    return {"rows": FRAME_CATALOG}
+
+
+@api.post("/api/shop/frame/buy")
+async def shop_frame_buy(req: Request):
+    body = await req.json()
+    user_id, frame_key = body["userId"], body["frameKey"]
+    frame = next((f for f in FRAME_CATALOG if f["key"] == frame_key), None)
+    if not frame:
+        raise HTTPException(400, "naməlum çərçivə")
+    async with db_pool.acquire() as conn:
+        user = await conn.fetchrow("SELECT * FROM users WHERE id=$1", user_id)
+        if not user or user["hearts"] < frame["cost"]:
+            raise HTTPException(400, "ürək kifayət etmir")
+        row = await conn.fetchrow(
+            "UPDATE users SET hearts = hearts - $1, frame_id=$2 WHERE id=$3 RETURNING *",
+            frame["cost"], frame_key, user_id,
+        )
+    return {"user": row_to_json(row)}
+
+
+# ---------- BOOSTER'LAR ----------
+# QEYD: hazırda bu boosterlar say/seçim səviyyəsində işləyir (vizual + saxlama);
+# oyun nəticələrinə (məs. daha çox öpüş şansı) təsirini əlavə etmək ayrıca iş tələb edir.
+
+BOOSTER_COLUMNS = {
+    "flame": "booster_flame",
+    "clap": "booster_clap",
+    "x2": "booster_x2",
+    "kissup": "booster_kissup",
+    "plus5": "booster_plus5",
+}
+
+
+@api.get("/api/boosters/{user_id}")
+async def boosters_get(user_id: int):
+    async with db_pool.acquire() as conn:
+        user = await conn.fetchrow("SELECT * FROM users WHERE id=$1", user_id)
+    if not user:
+        raise HTTPException(404, "istifadəçi tapılmadı")
+    return {b: user[col] for b, col in BOOSTER_COLUMNS.items()}
+
+
+@api.post("/api/boosters/add")
+async def boosters_add(req: Request):
+    body = await req.json()
+    user_id, booster_key, amount = body["userId"], body["boosterKey"], body.get("amount", 1)
+    col = BOOSTER_COLUMNS.get(booster_key)
+    if not col:
+        raise HTTPException(400, "naməlum booster")
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            f"UPDATE users SET {col} = {col} + $1 WHERE id=$2 RETURNING *", amount, user_id,
+        )
+    return {"user": row_to_json(row)}
+
+
+# ---------- KALP AL (Telegram Stars ödənişi) ----------
+
+@api.get("/api/hearts/packages")
+async def hearts_packages():
+    return {"rows": [{"key": k, **v} for k, v in HEART_PACKAGES.items()]}
+
+
+@api.post("/api/hearts/invoice")
+async def hearts_invoice(req: Request):
+    body = await req.json()
+    user_id, package_key = body["userId"], body["packageKey"]
+    pkg = HEART_PACKAGES.get(package_key)
+    if not pkg:
+        raise HTTPException(400, "naməlum paket")
+    if not tg_bot:
+        raise HTTPException(500, "bot hazır deyil")
+    link = await tg_bot.create_invoice_link(
+        title="Ürəklər",
+        description=f"{pkg['hearts']} ❤️ oyun ürəyi",
+        payload=f"hearts:{user_id}:{package_key}",
+        provider_token="",
+        currency="XTR",
+        prices=[LabeledPrice(label=f"{pkg['hearts']} ❤️", amount=pkg["stars"])],
+    )
+    return {"link": link}
+
+
+@api.post("/api/hearts/bonus")
+async def hearts_bonus(req: Request):
+    """'Bir arkadaş için' / 'İltifatlar için' kimi sadə bonus əlavələri (pulsuz, sadələşdirilmiş)."""
+    body = await req.json()
+    user_id, amount = body["userId"], int(body.get("amount", 10))
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "UPDATE users SET hearts = hearts + $1 WHERE id=$2 RETURNING *", amount, user_id,
+        )
+    return {"user": row_to_json(row)}
+
+
 # Statik fayllar (Mini App frontend) — /public qovluğu
 api.mount("/", StaticFiles(directory="public", html=True), name="public")
 
@@ -557,22 +856,64 @@ socket_app = socketio.ASGIApp(sio, other_asgi_app=api)
 # 7) TELEGRAM BOT HANDLER-LƏRİ
 # =========================================================================
 
+START_CAPTION = (
+    "Selam! Bu oyun yeni insanlarla tanışmanıza, arkadaş edinmenize ve hatta "
+    "aşkı bulmanıza yardımcı olacak.\n"
+    "💬 Oyunda gerçek insanlarla sohbet edin, yeni arkadaşlar edinin ve gerçek "
+    "hayatta buluşun!\n"
+    "💖 Başkaları tarafından beğenilmek mi istiyorsunuz? Hediyeler, kokteyller "
+    "ve öpücükler paylaşın\n"
+    "🤡 Birisi oyun masasında canınızı mı sıkıyor? Onlara domates ve komik "
+    "nesneler fırlatın veya onlara bir palyaço kafası hediye edin\n"
+    "🎵 Favori YouTube videolarınızı doğrudan oyun odasında oynatın\n"
+    "🎮 OYNA üzerine basın, oyuna katılın, öpücük gönderin ve tanışın!"
+)
+
+# public/img/start_banner.jpg -> /start üçün banner şəkli
+START_BANNER_PATH = os.path.join(os.path.dirname(__file__), "public", "img", "start_banner.jpg")
+
+
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎲 Oyuna başla", web_app=WebAppInfo(url=WEBAPP_URL))]
+        [InlineKeyboardButton("OYNA 🍾", web_app=WebAppInfo(url=WEBAPP_URL))]
     ])
-    await update.message.reply_text(
-        "Salam! 🍾 Spin the Bottle oyununa xoş gəldin.\n"
-        "Aşağıdakı düymə ilə masaya otur və şişəni çevir!",
-        reply_markup=keyboard,
-    )
+    try:
+        with open(START_BANNER_PATH, "rb") as photo:
+            await update.message.reply_photo(
+                photo=photo,
+                caption=START_CAPTION,
+                reply_markup=keyboard,
+            )
+    except FileNotFoundError:
+        # banner tapılmasa belə, mesaj + düymə yenə göndərilsin
+        await update.message.reply_text(START_CAPTION, reply_markup=keyboard)
 
 
 async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🍾 Şişəni çevir", web_app=WebAppInfo(url=WEBAPP_URL))]
+        [InlineKeyboardButton("OYNA 🍾", web_app=WebAppInfo(url=WEBAPP_URL))]
     ])
     await update.message.reply_text("Masaya qayıt 👇", reply_markup=keyboard)
+
+
+async def precheckout_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Stars ödənişi göndərilməzdən əvvəl Telegram bu sorğunu edir; həmişə OK cavabı veririk.
+    await update.pre_checkout_query.answer(ok=True)
+
+
+async def successful_payment_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    payment = update.message.successful_payment
+    try:
+        _, user_id_str, package_key = payment.invoice_payload.split(":")
+        user_id = int(user_id_str)
+    except (ValueError, AttributeError):
+        return
+    pkg = HEART_PACKAGES.get(package_key)
+    if not pkg:
+        return
+    async with db_pool.acquire() as conn:
+        await conn.execute("UPDATE users SET hearts = hearts + $1 WHERE id=$2", pkg["hearts"], user_id)
+    await update.message.reply_text(f"✅ {pkg['hearts']} ❤️ hesabınıza əlavə olundu! Təşəkkürlər 🍾")
 
 
 # =========================================================================
@@ -580,12 +921,16 @@ async def play_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =========================================================================
 
 async def main():
+    global tg_bot
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN .env faylında təyin olunmayıb")
 
     application = Application.builder().token(BOT_TOKEN).build()
+    tg_bot = application.bot
     application.add_handler(CommandHandler("start", start_handler))
     application.add_handler(CommandHandler("play", play_handler))
+    application.add_handler(PreCheckoutQueryHandler(precheckout_handler))
+    application.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_handler))
 
     uv_config = uvicorn.Config(socket_app, host="0.0.0.0", port=PORT, log_level="info")
     server = uvicorn.Server(uv_config)

@@ -5,18 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Spin the Bottle 🍾❤️</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
+<!-- Splash / yüklənmə ekranı -->
+<div id="splashScreen" class="splash-screen">
+  <div id="splashLoading" class="splash-phase">
+    <div class="splash-progress-track">
+      <div id="splashProgressBar" class="splash-progress-bar"></div>
+    </div>
+  </div>
+  <div id="splashLogo" class="splash-phase hidden">
+    <div class="splash-logo">
+      <span class="splash-logo-line1">Spin</span>
+      <span class="splash-logo-line2">the Bottle</span>
+    </div>
+  </div>
+</div>
+
 <!-- Üst panel -->
 <div id="topbar" class="topbar">
-  <div class="hearts-badge">❤️ <span id="heartsCount">0</span></div>
+  <div class="hearts-badge" id="btnHeartShop" title="Kalp al">❤️ <span id="heartsCount">0</span></div>
   <button class="icon-btn" id="btnWheel" title="Çarxıfələk">🎡</button>
   <button class="icon-btn" id="btnTrophy" title="Reytinq">🏆</button>
   <button class="icon-btn" id="btnMenu" title="Nailiyyətlər">☰</button>
   <button class="icon-btn" id="btnSettings" title="Ayarlar">⚙️</button>
-  <div class="table-badge">Masa <span id="tableNumber">1</span></div>
+  <div class="table-badge" id="btnTableSwitch" title="Masanı dəyiş">Masa <span id="tableNumber">1</span></div>
   <button class="icon-btn refresh" id="btnRefresh" title="Yeni masa">🔄</button>
 </div>
 
@@ -25,9 +42,16 @@
   <div id="npcRing" class="npc-ring"></div>
   <div class="sunburst"></div>
   <div class="center-area">
+    <div id="spinLabel" class="spin-label hidden">Şişeyi çeviriyor<br/><span class="spin-arrow">↓</span></div>
     <div id="bottle" class="bottle">🍾</div>
     <div id="centerText" class="center-text">Yüklənir...</div>
   </div>
+</div>
+
+<!-- Uzun basma menyusu (booster / şişə) -->
+<div id="bottleLongPressMenu" class="bottle-menu hidden">
+  <button id="btnOpenBoosters">🔥 Boosterlar</button>
+  <button id="btnOpenBottleShop">🍾 Şişəni dəyiş</button>
 </div>
 
 <!-- Tutorial overlay -->
@@ -50,6 +74,30 @@
 <div id="giftPicker" class="gift-picker hidden">
   <div class="gift-picker-title">Bir hədiyyə seç</div>
   <div class="gift-grid" id="giftGrid"></div>
+</div>
+
+<!-- Seçimin (Vazgeç / Öp) -->
+<div id="choiceOverlay" class="choice-overlay hidden">
+  <div class="choice-title">Seçimin</div>
+  <div class="choice-row">
+    <img id="choiceUserAvatar" class="choice-avatar" src="" />
+    <span id="choiceNumber" class="choice-number">0</span>
+    <img id="choiceTargetAvatar" class="choice-avatar" src="" />
+  </div>
+  <div class="choice-btn-row">
+    <button id="btnChoiceCancel" class="choice-btn cancel">Vazgeç</button>
+    <button id="btnChoiceKiss" class="choice-btn kiss">Öp</button>
+  </div>
+</div>
+
+<!-- Geri öpecek mi? -->
+<div id="kissBackOverlay" class="kissback-overlay hidden">
+  <div class="kissback-title">Geri<br/>öpecek mi?</div>
+  <div class="kissback-row">
+    <img id="kissBackTargetAvatar" class="choice-avatar" src="" />
+    <span class="kiss-arrow-emoji">💋</span>
+    <img id="kissBackUserAvatar" class="choice-avatar" src="" />
+  </div>
 </div>
 
 <!-- Söhbət qutusu -->
@@ -128,6 +176,11 @@
   <div class="modal-card wide">
     <button class="modal-close" data-close="achvModal">✕</button>
     <div class="modal-title">Başarılarım <span id="achvCount">0/0</span></div>
+    <div class="achv-filter-row">
+      <span>Önce göster:</span>
+      <button class="achv-filter-btn active" data-filter="completed">tamamlandı</button>
+      <button class="achv-filter-btn" data-filter="locked">kilitli</button>
+    </div>
     <div id="achvGrid" class="achv-grid"></div>
   </div>
 </div>
@@ -148,6 +201,67 @@
     <div class="settings-link" id="btnInvite">👥 Arkadaşları davet et</div>
     <div class="settings-link" id="btnProfileSettings">📇 Profil ayarları</div>
     <div class="settings-link" id="btnContact">💬 Bize ulaşın</div>
+  </div>
+</div>
+
+<!-- Booster'lar modalı -->
+<div id="boosterModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <button class="modal-close" data-close="boosterModal">✕</button>
+    <div class="modal-title">Booster'lar</div>
+    <p class="modal-desc">Mevcut tüm güçlendiriciler ve sayıları size sunulmaktadır</p>
+    <div class="booster-section-title">Güçlendiricileri seçin</div>
+    <div class="booster-row">
+      <div class="booster-item" data-key="flame"><span class="booster-count" id="boosterFlame">0</span>🔥💋</div>
+      <div class="booster-item" data-key="clap"><span class="booster-count" id="boosterClap">0</span>👏</div>
+    </div>
+    <div class="booster-section-title">Lig güçlendiriciler</div>
+    <div class="booster-row">
+      <div class="booster-item" data-key="x2"><span class="booster-count" id="boosterX2">0</span>⭐x2</div>
+      <div class="booster-item" data-key="kissup"><span class="booster-count" id="boosterKissup">0</span>⬆️💋</div>
+      <div class="booster-item" data-key="plus5"><span class="booster-count" id="boosterPlus5">0</span>⭐+5</div>
+    </div>
+  </div>
+</div>
+
+<!-- Şişeyi değiştir (bottom sheet) -->
+<div id="bottleShopSheet" class="bottom-sheet hidden">
+  <div class="bottom-sheet-title">Şişeyi değiştir</div>
+  <div id="bottleShopGrid" class="bottle-shop-grid"></div>
+  <button class="modal-close" data-close="bottleShopSheet">✕</button>
+</div>
+
+<!-- Stil / çərçivə mağazası -->
+<div id="frameShopModal" class="modal-overlay hidden">
+  <div class="modal-card wide">
+    <button class="modal-close" data-close="frameShopModal">✕</button>
+    <div class="modal-title">Stil uygulaması yok</div>
+    <div class="frame-preview-row">
+      <img id="framePreviewAvatar" class="frame-preview-avatar" src="" />
+      <div class="frame-preview-desc">Profil resmini ve kullanıcı adını stil uygulamadan bırakın</div>
+    </div>
+    <button id="btnApplyFrame" class="btn-green small">Uygula</button>
+    <div id="frameGrid" class="frame-grid"></div>
+  </div>
+</div>
+
+<!-- Kalp al (Stars mağazası) -->
+<div id="heartShopModal" class="modal-overlay hidden">
+  <div class="modal-card wide heart-shop">
+    <button class="modal-close" data-close="heartShopModal">✕</button>
+    <div class="modal-title">Kalp al</div>
+    <div class="heart-shop-grid" id="heartShopGrid"></div>
+  </div>
+</div>
+
+<!-- Masayı dəyiştir -->
+<div id="tableSwitchModal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <button class="modal-close" data-close="tableSwitchModal">✕</button>
+    <div class="modal-title">Masayı değiştir</div>
+    <button id="btnRandomTable" class="btn-orange">Rastgele tablo!</button>
+    <div class="recent-tables-label">Yakın zamanda ziyaret ettiğiniz tablolar</div>
+    <div id="recentTablesList" class="recent-tables-list"></div>
   </div>
 </div>
 
