@@ -70,10 +70,23 @@
   <div id="waitName" class="wait-name"></div>
 </div>
 
-<!-- Hədiyyə seçici -->
+<!-- Hədiyyə / Jest seçici -->
 <div id="giftPicker" class="gift-picker hidden">
-  <div class="gift-picker-title">Bir hədiyyə seç</div>
+  <div class="gift-picker-header">
+    <img id="giftRecipientAvatar" class="gift-recipient-avatar" src="" />
+    <div>
+      <div class="gift-recipient-label">hediye gönder</div>
+      <div id="giftRecipientName" class="gift-recipient-name"></div>
+    </div>
+    <button id="btnAddRecipient" class="add-recipient-btn" title="Başqalarını da seç">➕</button>
+    <button id="btnMultiConfirm" class="multi-confirm-btn hidden" title="Göndər">✔️</button>
+  </div>
+  <div class="gift-tabs">
+    <button class="gift-tab active" data-tab="gift">💝 Hədiyyə</button>
+    <button class="gift-tab" data-tab="gesture">😊 Jest</button>
+  </div>
   <div class="gift-grid" id="giftGrid"></div>
+  <div class="gift-grid hidden" id="gestureGrid"></div>
 </div>
 
 <!-- Seçimin (Vazgeç / Öp) -->
@@ -100,14 +113,15 @@
   </div>
 </div>
 
-<!-- Söhbət qutusu -->
-<div id="chatBox" class="chat-box hidden">
+<!-- Söhbət paneli (həmişə görünür — masa söhbəti) -->
+<div id="chatBox" class="chat-box">
   <div id="chatMessages" class="chat-messages"></div>
   <div class="chat-input-row">
     <input id="chatInput" type="text" placeholder="Mesaj yaz" />
     <button id="btnSend">➤</button>
   </div>
 </div>
+
 
 <!-- Profil quraşdırma modalı -->
 <div id="profileModal" class="modal-overlay hidden">

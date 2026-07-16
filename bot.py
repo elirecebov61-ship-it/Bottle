@@ -288,22 +288,97 @@ HEART_PACKAGES = {
 }
 
 GIFT_CATALOG = {
-    "crown":     {"cost": 50,  "category": "heart"},
-    "kiss":      {"cost": 10,  "category": "kiss"},
-    "gem":       {"cost": 100, "category": "heart"},
-    "strawberry":{"cost": 5,   "category": "heart"},
-    "tomato":    {"cost": 1,   "category": "smile"},
-    "rose":      {"cost": 20,  "category": "heart"},
-    "milk":      {"cost": 3,   "category": "hug"},
-    "teddy":     {"cost": 30,  "category": "hug"},
-    "icecream":  {"cost": 8,   "category": "smile"},
-    "champagne": {"cost": 15,  "category": "music"},
-    "wine":      {"cost": 12,  "category": "music"},
-    "cocktail":  {"cost": 15,  "category": "music"},
-    "cap":       {"cost": 7,   "category": "smile"},
-    "lime":      {"cost": 4,   "category": "smile"},
-    "ring":      {"cost": 200, "category": "heart"},
+    # -- musiqi / status --
+    "note1":     {"emoji": "🎵", "cost": 9,  "category": "music"},
+    "note2":     {"emoji": "🎶", "cost": 5,  "category": "music"},
+    "crown1":    {"emoji": "👑", "cost": 3,  "category": "heart"},
+    "crown2":    {"emoji": "🏆", "cost": 3,  "category": "heart"},
+    "crown3":    {"emoji": "💍", "cost": 3,  "category": "heart"},
+    "fan":       {"emoji": "🌀", "cost": 1,  "category": "smile"},
+    "football":  {"emoji": "⚽", "cost": 1,  "category": "smile"},
+    "racket":    {"emoji": "🏸", "cost": 1,  "category": "smile"},
+    # -- yemək / hədiyyə --
+    "kebab":     {"emoji": "🍢", "cost": 1,  "category": "smile"},
+    "kiss":      {"emoji": "💋", "cost": 1,  "category": "kiss"},
+    "gem":       {"emoji": "💎", "cost": 1,  "category": "heart"},
+    "strawberry":{"emoji": "🍓", "cost": 1,  "category": "heart"},
+    "tomato":    {"emoji": "🍅", "cost": 1,  "category": "smile"},
+    "frog":      {"emoji": "🐸", "cost": 2,  "category": "smile"},
+    "rose":      {"emoji": "🌹", "cost": 2,  "category": "heart"},
+    "candy":     {"emoji": "🍬", "cost": 1,  "category": "smile"},
+    "duck":      {"emoji": "🦆", "cost": 1,  "category": "smile"},
+    # -- yumşaq oyuncaqlar / güllər --
+    "teddy":     {"emoji": "🧸", "cost": 1,  "category": "hug"},
+    "penguin":   {"emoji": "🐧", "cost": 1,  "category": "hug"},
+    "bouquet":   {"emoji": "💐", "cost": 1,  "category": "heart"},
+    "flowers":   {"emoji": "🌼", "cost": 1,  "category": "heart"},
+    "plant":     {"emoji": "🪴", "cost": 1,  "category": "heart"},
+    "cactus":    {"emoji": "🌵", "cost": 1,  "category": "heart"},
+    "icecream":  {"emoji": "🍨", "cost": 1,  "category": "smile"},
+    "cake":      {"emoji": "🍰", "cost": 1,  "category": "smile"},
+    "milk":      {"emoji": "🥛", "cost": 1,  "category": "hug"},
+    # -- içkilər --
+    "wine":      {"emoji": "🍷", "cost": 1,  "category": "music"},
+    "whiskey":   {"emoji": "🥃", "cost": 1,  "category": "music"},
+    "coffee1":   {"emoji": "☕", "cost": 1,  "category": "hug"},
+    "icedtea":   {"emoji": "🧊", "cost": 1,  "category": "hug"},
+    "coffee2":   {"emoji": "🫖", "cost": 3,  "category": "hug"},
+    "champagne_glass": {"emoji": "🥂", "cost": 1, "category": "music"},
+    "beer":      {"emoji": "🍺", "cost": 1,  "category": "music"},
+    "cocktail":  {"emoji": "🍹", "cost": 1,  "category": "music"},
+    "juice":     {"emoji": "🧃", "cost": 1,  "category": "hug"},
+    # -- geyim / aksesuar (2 ürək) --
+    "nursehat":  {"emoji": "👩‍⚕️", "cost": 2, "category": "smile"},
+    "cowboyhat": {"emoji": "🤠", "cost": 2,  "category": "smile"},
+    "sailorcap": {"emoji": "⛵", "cost": 2,  "category": "smile"},
+    "alien":     {"emoji": "👽", "cost": 2,  "category": "smile"},
+    "wood":      {"emoji": "🪵", "cost": 2,  "category": "smile"},
+    "fingers":   {"emoji": "🤞", "cost": 2,  "category": "hug"},
+    "flame":     {"emoji": "🔥", "cost": 2,  "category": "smile"},
+    "bunnyears": {"emoji": "🐰", "cost": 2,  "category": "smile"},
+    "sunglasses":{"emoji": "🕶️", "cost": 2,  "category": "smile"},
+    "prayer":    {"emoji": "🙏", "cost": 2,  "category": "hug"},
+    "lipstick":  {"emoji": "💄", "cost": 2,  "category": "kiss"},
+    "antlers":   {"emoji": "🦌", "cost": 2,  "category": "smile"},
+    "bowtie":    {"emoji": "🎀", "cost": 2,  "category": "smile"},
+    "gift_bow":  {"emoji": "🎁", "cost": 2,  "category": "heart"},
+    "angel":     {"emoji": "👼", "cost": 2,  "category": "hug"},
+    # -- VIP / xüsusi (baha) --
+    "vip_ring":  {"emoji": "💍", "cost": 1,  "category": "heart"},
+    "vip_gold":  {"emoji": "🏅", "cost": 3,  "category": "heart"},
+    "roses":     {"emoji": "🌹", "cost": 1,  "category": "heart"},
+    "rooster":   {"emoji": "🐓", "cost": 3,  "category": "smile"},
+    "horseshoe": {"emoji": "🧲", "cost": 1,  "category": "heart"},
+    "champbottle": {"emoji": "🍾", "cost": 1, "category": "music"},
+    "black_rose":{"emoji": "🥀", "cost": 1,  "category": "heart"},
+    "black_crown": {"emoji": "👑", "cost": 3, "category": "heart"},
+    "tea":       {"emoji": "🍵", "cost": 1,  "category": "hug"},
+    "dice":      {"emoji": "🎲", "cost": 1,  "category": "smile"},
 }
+
+# ---------- JESTLƏR ("Jesti kullan" tabı) ----------
+# QEYD: orijinalda əksəriyyəti VIP/kilidli emoji-üzlərdir; bu, quruluşu
+# eyni saxlayan yaxınlaşmadır (bir neçəsi pulsuz, qalanı VIP tələb edir).
+GESTURE_CATALOG = [
+    {"key": "laugh",  "emoji": "😂", "locked": False},
+    {"key": "wink",   "emoji": "😉", "locked": False},
+    {"key": "cool",   "emoji": "😎", "locked": False},
+    {"key": "heart_eyes", "emoji": "😍", "locked": True},
+    {"key": "sad",    "emoji": "😢", "locked": True},
+    {"key": "wave",   "emoji": "👋", "locked": True},
+    {"key": "shy",    "emoji": "☺️", "locked": True},
+    {"key": "cry_laugh", "emoji": "😹", "locked": True},
+    {"key": "smirk",  "emoji": "😏", "locked": True},
+    {"key": "tongue",  "emoji": "😝", "locked": True},
+    {"key": "angry",  "emoji": "😠", "locked": True},
+    {"key": "shock",  "emoji": "😱", "locked": True},
+    {"key": "thumbsup", "emoji": "👍", "locked": True},
+    {"key": "clap",   "emoji": "👏", "locked": True},
+    {"key": "devil",  "emoji": "😈", "locked": True},
+    {"key": "punk",   "emoji": "🤘", "locked": True},
+    {"key": "heart_face", "emoji": "🥰", "locked": True},
+]
+
 
 WHEEL_SLICES = [
     {"type": "hearts", "amount": 3},
@@ -563,36 +638,75 @@ async def game_spin(req: Request):
 @api.post("/api/game/gift")
 async def game_gift(req: Request):
     body = await req.json()
-    user_id, npc_id, gift_key = body["userId"], body["npcId"], body["giftKey"]
+    user_id, gift_key = body["userId"], body["giftKey"]
+    npc_ids = body.get("npcIds") or ([body["npcId"]] if "npcId" in body else [])
+    if not npc_ids:
+        raise HTTPException(400, "alıcı seçilməyib")
     gift = GIFT_CATALOG.get(gift_key)
     if not gift:
         raise HTTPException(400, "naməlum hədiyyə")
 
+    total_cost = gift["cost"] * len(npc_ids)
     async with db_pool.acquire() as conn:
         user = await conn.fetchrow("SELECT * FROM users WHERE id=$1", user_id)
-        if not user or user["hearts"] < gift["cost"]:
+        if not user or user["hearts"] < total_cost:
             raise HTTPException(400, "ürək kifayət etmir")
 
-        await conn.execute("UPDATE users SET hearts = hearts - $1 WHERE id=$2", gift["cost"], user_id)
-        await conn.execute(
-            "INSERT INTO gifts (user_id, npc_id, gift_key, cost) VALUES ($1,$2,$3,$4)",
-            user_id, npc_id, gift_key, gift["cost"],
-        )
-        await add_score(conn, user_id, gift["category"], gift["cost"])
+        await conn.execute("UPDATE users SET hearts = hearts - $1 WHERE id=$2", total_cost, user_id)
+        replies = []
+        session = await conn.fetchrow("SELECT * FROM game_sessions WHERE user_id=$1", user_id)
+        for npc_id in npc_ids:
+            await conn.execute(
+                "INSERT INTO gifts (user_id, npc_id, gift_key, cost) VALUES ($1,$2,$3,$4)",
+                user_id, npc_id, gift_key, gift["cost"],
+            )
+            npc = await conn.fetchrow("SELECT * FROM npc_profiles WHERE id=$1", npc_id)
+            reply = reply_to_gift(npc["personality"])
+            await conn.execute(
+                "INSERT INTO messages (session_id, sender, npc_id, text) VALUES ($1,'npc',$2,$3)",
+                session["id"], npc_id, f"{npc['name']}, {reply}",
+            )
+            replies.append({"npcId": npc_id, "npcName": npc["name"], "reply": reply})
+        await add_score(conn, user_id, gift["category"], total_cost)
         await bump_achievement(conn, user_id, "first_gift", 1)
-        await bump_achievement(conn, user_id, "gifts_10", 1)
+        await bump_achievement(conn, user_id, "gifts_10", len(npc_ids))
         if gift_key == "kiss":
             await bump_achievement(conn, user_id, "first_kiss", 1)
 
-        npc = await conn.fetchrow("SELECT * FROM npc_profiles WHERE id=$1", npc_id)
-        reply = reply_to_gift(npc["personality"])
+    return {"ok": True, "replies": replies}
 
+
+# ---------- JESTLƏR ----------
+
+@api.get("/api/gifts")
+async def gifts_list():
+    return {"rows": [{"key": k, **v} for k, v in GIFT_CATALOG.items()]}
+
+
+@api.get("/api/gestures")
+async def gestures_list():
+    return {"rows": GESTURE_CATALOG}
+
+
+# ---------- MASA SÖHBƏTİ (ambient / fon söhbəti) ----------
+
+_AMBIENT_LINES = [
+    "Salam hamıya 👋", "Necəsiniz?", "Bura ilk dəfə gəlirəm 😄",
+    "Kimin telefonu yeni?", "Musiqi açaq bir az 🎵", "Kim haralıdır?",
+    "Bu masa əladır 😍", "Sıra kimdədir indi?", "Şişəni kim çevirəcək?",
+    "Hamı gözəl görünür bu gün ✨", "Söhbət edək bir az",
+]
+
+
+@api.get("/api/game/ambient/{user_id}")
+async def game_ambient(user_id: int):
+    async with db_pool.acquire() as conn:
         session = await conn.fetchrow("SELECT * FROM game_sessions WHERE user_id=$1", user_id)
-        await conn.execute(
-            "INSERT INTO messages (session_id, sender, npc_id, text) VALUES ($1,'npc',$2,$3)",
-            session["id"], npc_id, f"{npc['name']}, {reply}",
-        )
-    return {"ok": True, "npcReply": reply, "npc": dict(npc)}
+        if not session or not session["seated_npc_ids"]:
+            return {"npcName": None, "text": None}
+        npc_id = random.choice(session["seated_npc_ids"])
+        npc = await conn.fetchrow("SELECT * FROM npc_profiles WHERE id=$1", npc_id)
+    return {"npcId": npc_id, "npcName": npc["name"], "text": random.choice(_AMBIENT_LINES)}
 
 
 @api.post("/api/game/message")

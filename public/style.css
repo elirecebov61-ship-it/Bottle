@@ -139,22 +139,39 @@ html, body {
   line-height: 1.4;
 }
 
-/* ---------- HƏDİYYƏ SEÇİCİ ---------- */
+/* ---------- HƏDİYYƏ / JEST SEÇİCİ ---------- */
 .gift-picker {
   position: fixed; left: 0; right: 0; bottom: 0;
   background: #fff; color: #222;
   border-radius: 16px 16px 0 0;
-  padding: 16px;
+  padding: 12px 16px 16px;
   z-index: 30;
+  max-height: 46vh; overflow: hidden;
+  display: flex; flex-direction: column;
 }
-.gift-picker-title { font-weight: 700; margin-bottom: 10px; }
+.gift-picker-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.gift-recipient-avatar { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; }
+.gift-recipient-label { font-size: 11px; color: #999; }
+.gift-recipient-name { font-size: 14px; font-weight: 700; }
+.add-recipient-btn, .multi-confirm-btn {
+  margin-left: auto; width: 34px; height: 34px; border-radius: 50%; border: none;
+  background: #eee; font-size: 16px; cursor: pointer;
+}
+.multi-confirm-btn { background: #6fb53a; color: #fff; }
+.gift-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+.gift-tab {
+  border: none; background: #f2f2f2; border-radius: 16px; padding: 6px 14px;
+  font-size: 13px; font-weight: 700; color: #666; cursor: pointer;
+}
+.gift-tab.active { background: #222; color: #fff; }
 .gift-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 12px;
+  overflow-y: auto;
 }
 .gift-grid .gift-item {
-  font-size: 28px;
+  font-size: 26px;
   text-align: center;
   cursor: pointer;
   position: relative;
@@ -165,32 +182,40 @@ html, body {
   color: #d9534f;
   font-weight: 700;
 }
+.gift-item.locked { opacity: 0.35; filter: grayscale(1); }
+.gift-item .lock-icon { position: absolute; top: -2px; right: 10px; font-size: 11px; }
 
-/* ---------- CHAT ---------- */
+/* ---------- ÇOX ALICI SEÇİMİ ---------- */
+.npc-seat.selectable .avatar-wrap { cursor: pointer; }
+.npc-seat .select-badge {
+  position: absolute; top: -6px; left: -6px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(255,255,255,0.85); color: #222;
+  font-size: 13px; display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid #999;
+}
+.npc-seat.selected .select-badge { background: #6fb53a; color: #fff; border-color: #6fb53a; }
+
+/* ---------- CHAT (həmişə görünən masa söhbəti) ---------- */
 .chat-box {
   position: fixed; left: 0; right: 0; bottom: 0;
-  background: #fff; color: #222;
-  max-height: 55%;
+  background: rgba(255,255,255,0.97); color: #222;
+  height: 38%;
   display: flex; flex-direction: column;
   border-radius: 16px 16px 0 0;
-  z-index: 30;
+  z-index: 12;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
 }
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 10px 12px;
 }
-.chat-msg { margin-bottom: 10px; display: flex; gap: 8px; align-items: flex-start; }
-.chat-msg .bubble {
-  background: #f1f1f1;
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-size: 14px;
-  max-width: 75%;
-}
-.chat-msg.user { flex-direction: row-reverse; }
-.chat-msg.user .bubble { background: #ffe9c7; }
+.chat-msg { margin-bottom: 8px; }
 .chat-msg .sender { font-weight: 700; color: #4a90d9; font-size: 13px; }
+.chat-msg .msg-text { font-size: 14px; }
+.chat-msg .translate-link { display: block; font-size: 11px; color: #999; cursor: pointer; }
+.chat-msg.user .sender { color: #d9534f; }
 .chat-input-row {
   display: flex; gap: 8px;
   padding: 10px;

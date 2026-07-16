@@ -30,14 +30,12 @@ let state = {
   npcs: [],
   session: null,
   currentNpcId: null,
+  giftCatalog: [],
+  gestureCatalog: [],
+  activeGiftTab: 'gift',
+  multiSelectMode: false,
+  selectedNpcIds: [],
 };
-
-const GIFTS = [
-  ['crown', '👑', 50], ['kiss', '💋', 10], ['gem', '💎', 100], ['strawberry', '🍓', 5],
-  ['tomato', '🍅', 1], ['rose', '🌹', 20], ['milk', '🥛', 3], ['teddy', '🧸', 30],
-  ['icecream', '🍨', 8], ['champagne', '🍾', 15], ['wine', '🍷', 12], ['cocktail', '🍹', 15],
-  ['cap', '🧢', 7], ['lime', '🍸', 4], ['ring', '💍', 200],
-];
 
 // mövqe faizləri (12 oturacaq: 0-cı yer = istifadəçinin özü)
 const SEAT_POSITIONS = [
@@ -164,8 +162,10 @@ async function joinTable() {
   const { session, npcs, user } = await api('/api/game/join', { method: 'POST', body: { userId: state.user.id } });
   state.session = session;
   state.npcs = npcs;
+  state.currentNpcId = npcs[0] ? npcs[0].id : null;
   if (user) { state.user = user; $('tableNumber').textContent = user.table_number; }
   renderRing();
+  startAmbientChat();
   setTimeout(() => {
     hideWaitScreen();
     $('centerText').textContent = 'Sonraki sırayı\nbekliyoruz';
@@ -306,36 +306,156 @@ document.addEventListener('click', (e) => {
 $('btnOpenBoosters').onclick = () => { $('bottleLongPressMenu').classList.add('hidden'); openBoosterModal(); };
 $('btnOpenBottleShop').onclick = () => { $('bottleLongPressMenu').classList.add('hidden'); openBottleShop(); };
 
-// ---------- HƏDİYYƏ SEÇİCİ ----------
+// ---------- HƏDİYYƏ / JEST SEÇİCİ ----------
 
-function openGiftPicker(npcId) {
+async function ensureCatalogsLoaded() {
+  if (!state.giftCatalog.length) {
+    const { rows } = await api('/api/gifts');
+    state.giftCatalog = rows;
+  }
+  if (!state.gestureCatalog.length) {
+    const { rows } = await api('/api/gestures');
+    state.gestureCatalog = rows;
+  }
+}
+
+async function openGiftPicker(npcId) {
   state.currentNpcId = npcId;
+  state.multiSelectMode = false;
+  state.selectedNpcIds = [];
+  $('btnMultiConfirm').classList.add('hidden');
+  await ensureCatalogsLoaded();
+  const npc = state.npcs.find((n) => n.id === npcId);
+  if (npc) {
+    $('giftRecipientAvatar').src = npc.photo_url;
+    $('giftRecipientName').textContent = npc.name;
+  }
+  renderGiftTab();
+  renderGestureTab();
+  $('giftPicker').classList.remove('hidden');
+}
+
+function renderGiftTab() {
   const grid = $('giftGrid');
   grid.innerHTML = '';
-  GIFTS.forEach(([key, emoji, cost]) => {
+  state.giftCatalog.forEach((g) => {
     const div = document.createElement('div');
     div.className = 'gift-item';
-    div.innerHTML = `${emoji}<span class="cost">${cost}❤️</span>`;
-    div.onclick = () => sendGift(key);
+    div.innerHTML = `${g.emoji}<span class="cost">${g.cost}❤️</span>`;
+    div.onclick = () => sendGift(g.key);
     grid.appendChild(div);
   });
-  $('giftPicker').classList.remove('hidden');
+}
+
+function renderGestureTab() {
+  const grid = $('gestureGrid');
+  grid.innerHTML = '';
+  state.gestureCatalog.forEach((g) => {
+    const div = document.createElement('div');
+    div.className = 'gift-item' + (g.locked ? ' locked' : '');
+    div.innerHTML = `${g.emoji}${g.locked ? '<span class="lock-icon">🔒</span>' : ''}`;
+    div.onclick = () => sendGesture(g);
+    grid.appendChild(div);
+  });
+}
+
+document.querySelectorAll('.gift-tab').forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll('.gift-tab').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.activeGiftTab = btn.dataset.tab;
+    $('giftGrid').classList.toggle('hidden', state.activeGiftTab !== 'gift');
+    $('gestureGrid').classList.toggle('hidden', state.activeGiftTab !== 'gesture');
+  };
+});
+
+// ---------- ÇOXLU ALICI SEÇİMİ ("+" düyməsi) ----------
+
+$('btnAddRecipient').onclick = () => {
+  state.multiSelectMode = !state.multiSelectMode;
+  state.selectedNpcIds = state.currentNpcId ? [state.currentNpcId] : [];
+  $('btnMultiConfirm').classList.toggle('hidden', !state.multiSelectMode);
+  document.querySelectorAll('.npc-seat').forEach((seat) => {
+    const npcId = Number(seat.dataset.npcId);
+    seat.classList.toggle('selectable', state.multiSelectMode && !!npcId);
+    seat.classList.toggle('selected', state.selectedNpcIds.includes(npcId));
+    let badge = seat.querySelector('.select-badge');
+    if (state.multiSelectMode && npcId) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'select-badge';
+        seat.querySelector('.avatar-wrap').appendChild(badge);
+      }
+      badge.textContent = state.selectedNpcIds.includes(npcId) ? '✓' : '+';
+      seat.onclick = () => toggleSeatSelection(npcId);
+    } else if (badge) {
+      badge.remove();
+      seat.onclick = null;
+    }
+  });
+};
+
+function toggleSeatSelection(npcId) {
+  const idx = state.selectedNpcIds.indexOf(npcId);
+  if (idx >= 0) state.selectedNpcIds.splice(idx, 1);
+  else state.selectedNpcIds.push(npcId);
+  const seat = document.querySelector(`.npc-seat[data-npc-id="${npcId}"]`);
+  if (seat) {
+    seat.classList.toggle('selected', state.selectedNpcIds.includes(npcId));
+    const badge = seat.querySelector('.select-badge');
+    if (badge) badge.textContent = state.selectedNpcIds.includes(npcId) ? '✓' : '+';
+  }
+}
+
+$('btnMultiConfirm').onclick = () => {
+  if (!state.selectedNpcIds.length) { alert('Ən azı bir alıcı seç'); return; }
+  $('giftPicker').scrollIntoView?.();
+};
+
+function currentRecipients() {
+  return state.multiSelectMode && state.selectedNpcIds.length
+    ? state.selectedNpcIds
+    : [state.currentNpcId];
 }
 
 async function sendGift(giftKey) {
   try {
-    const { npcReply, npc } = await api('/api/game/gift', {
+    const npcIds = currentRecipients();
+    const { replies } = await api('/api/game/gift', {
       method: 'POST',
-      body: { userId: state.user.id, npcId: state.currentNpcId, giftKey },
+      body: { userId: state.user.id, npcIds, giftKey },
     });
     $('giftPicker').classList.add('hidden');
+    exitMultiSelect();
     hideTutorialHint();
     refreshHearts();
-    openChat(npc, npcReply);
+    replies.forEach((r) => addMsg(r.npcName, r.reply, 'npc'));
     if (isFirstPlay) { showTutorialStep(4); showTutorialHint('Ona bir şeyler yaz', '50%', '68%'); }
   } catch (e) {
     alert(e.message);
   }
+}
+
+function sendGesture(g) {
+  if (g.locked) { alert('Bu jest VIP istifadəçilər üçündür 🔒'); return; }
+  currentRecipients().forEach((npcId) => {
+    const npc = state.npcs.find((n) => n.id === npcId);
+    if (npc) addMsg('Sən', g.emoji, 'user');
+  });
+  $('giftPicker').classList.add('hidden');
+  exitMultiSelect();
+}
+
+function exitMultiSelect() {
+  state.multiSelectMode = false;
+  state.selectedNpcIds = [];
+  $('btnMultiConfirm').classList.add('hidden');
+  document.querySelectorAll('.npc-seat').forEach((seat) => {
+    seat.classList.remove('selectable', 'selected');
+    const badge = seat.querySelector('.select-badge');
+    if (badge) badge.remove();
+    seat.onclick = null;
+  });
 }
 
 async function refreshHearts() {
@@ -347,22 +467,16 @@ async function refreshHearts() {
   $('heartsCount').textContent = user.hearts;
 }
 
-// ---------- SÖHBƏT ----------
+// ---------- MASA SÖHBƏTİ (həmişə görünən) ----------
 
-function openChat(npc, firstReply) {
-  $('chatBox').classList.remove('hidden');
-  const box = $('chatMessages');
-  box.innerHTML = '';
-  addMsg(npc.name, firstReply, 'npc');
-}
-
-function addMsg(sender, text, who) {
+function addMsg(sender, text, who, translatable) {
   const box = $('chatMessages');
   const div = document.createElement('div');
   div.className = `chat-msg ${who}`;
-  div.innerHTML = who === 'npc'
-    ? `<div class="bubble"><span class="sender">${sender}</span><br>${text}</div>`
-    : `<div class="bubble">${text}</div>`;
+  div.innerHTML = `<span class="sender">${sender}:</span> <span class="msg-text">${text}</span>` +
+    (translatable ? `<span class="translate-link">Tercümeyi göster</span>` : '');
+  const link = div.querySelector('.translate-link');
+  if (link) link.onclick = () => { link.outerHTML = `<span class="msg-text" style="color:#999;"> (${text})</span>`; };
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
 }
@@ -372,7 +486,8 @@ $('chatInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendC
 
 async function sendChatMessage() {
   const text = $('chatInput').value.trim();
-  if (!text || !state.currentNpcId) return;
+  const npcId = state.currentNpcId || (state.npcs[0] && state.npcs[0].id);
+  if (!text || !npcId) return;
   addMsg('Sən', text, 'user');
   $('chatInput').value = '';
   if (isFirstPlay && tutorialStep === 4) {
@@ -391,12 +506,24 @@ async function sendChatMessage() {
         finishTutorial();
         document.querySelectorAll('.npc-seat').forEach((s) => { s.classList.remove('dim'); s.classList.remove('highlight'); });
         $('bottle').style.transform = 'rotate(0deg)';
-        $('chatBox').classList.add('hidden');
         await joinTable();
       };
     }, 1500);
   }
-  await api('/api/game/message', { method: 'POST', body: { userId: state.user.id, npcId: state.currentNpcId, text } });
+  await api('/api/game/message', { method: 'POST', body: { userId: state.user.id, npcId, text } });
+}
+
+// Fon (ambient) masa söhbəti — orijinaldakı kimi arxa fonda daim davam edən yazışma hissi
+let ambientTimer = null;
+function startAmbientChat() {
+  clearInterval(ambientTimer);
+  ambientTimer = setInterval(async () => {
+    if (!state.npcs.length) return;
+    try {
+      const data = await api(`/api/game/ambient/${state.user.id}`);
+      if (data.text) addMsg(data.npcName, data.text, 'npc', Math.random() < 0.4);
+    } catch (e) { /* səssiz keç */ }
+  }, 6000 + Math.random() * 3000);
 }
 
 socket.on('npc_message', ({ npcId, text, npcName }) => {
@@ -542,9 +669,9 @@ document.querySelectorAll('[data-close]').forEach((btn) => {
 $('btnRefresh').onclick = async () => {
   document.querySelectorAll('.npc-seat').forEach((s) => { s.classList.remove('dim'); s.classList.remove('highlight'); });
   $('bottle').style.transform = 'rotate(0deg)';
-  $('chatBox').classList.add('hidden');
   $('choiceOverlay').classList.add('hidden');
   $('kissBackOverlay').classList.add('hidden');
+  $('chatMessages').innerHTML = '';
   await joinTable();
 };
 
@@ -570,7 +697,6 @@ async function loadRecentTables() {
       $('tableSwitchModal').classList.add('hidden');
       $('choiceOverlay').classList.add('hidden');
       $('kissBackOverlay').classList.add('hidden');
-      $('chatBox').classList.add('hidden');
       await joinTable();
     };
     list.appendChild(div);
@@ -581,14 +707,16 @@ $('btnRandomTable').onclick = async () => {
   $('tableSwitchModal').classList.add('hidden');
   document.querySelectorAll('.npc-seat').forEach((s) => { s.classList.remove('dim'); s.classList.remove('highlight'); });
   $('bottle').style.transform = 'rotate(0deg)';
-  $('chatBox').classList.add('hidden');
   const { session, npcs, user } = await api('/api/game/table/switch', { method: 'POST', body: { userId: state.user.id } });
   state.session = session;
   state.npcs = npcs;
   state.user = user;
+  state.currentNpcId = npcs[0] ? npcs[0].id : null;
   $('tableNumber').textContent = user.table_number;
   $('heartsCount').textContent = user.hearts;
+  $('chatMessages').innerHTML = '';
   renderRing();
+  startAmbientChat();
   $('centerText').textContent = 'Sonraki sırayı\nbekliyoruz';
   setTimeout(() => { $('centerText').textContent = 'Sıra sende!\nŞişeye tıkla!'; }, 1500);
 };
